@@ -18,7 +18,9 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#ifndef __i386__
+/* The x86_64 host configuration is also used for native Apple Silicon builds.
+   Do not make Darwin's system headers select their i386 implementations.  */
+#if !defined(__i386__) && !defined(__aarch64__) && !defined(__arm64__)
 #define __i386__
 #endif
 

@@ -199,7 +199,14 @@ extern struct operand_alternative recog_op_alt[MAX_RECOG_OPERANDS][MAX_RECOG_ALT
 
 typedef int (*insn_operand_predicate_fn) PARAMS ((rtx, enum machine_mode));
 typedef const char * (*insn_output_fn) PARAMS ((rtx *, rtx));
+#if defined (__APPLE__) && (defined (__aarch64__) || defined (__arm64__))
+/* Darwin/AArch64 gives variadic arguments a different calling convention
+   from the K&R definitions emitted into insn-emit.c.  Keep this pointer
+   unprototyped so every RTL operand is passed using the builders' ABI.  */
+typedef rtx (*insn_gen_fn) ();
+#else
 typedef rtx (*insn_gen_fn) PARAMS ((rtx, ...));
+#endif
 
 struct insn_operand_data
 {

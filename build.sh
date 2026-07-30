@@ -165,7 +165,17 @@ build_agbcc() {
   fi
 }
 
-build_296()  { build_gcc_tree "$HERE/gcc-2.96" "$HERE/build-296" arm-elf     "-fcommon" cpp  tradcpp;  }
+build_296() {
+  # Darwin still declares sys_errlist/sys_nerr, but no longer exports them.
+  # Force gcc-2.96's libiberty fallback without leaking the cache settings
+  # into the gcc-3.0 build when the selected target is "all".
+  if [ "$(uname -s)" = "Darwin" ]; then
+    local libiberty_cv_var_sys_errlist="${libiberty_cv_var_sys_errlist:-no}"
+    local libiberty_cv_var_sys_nerr="${libiberty_cv_var_sys_nerr:-no}"
+    export libiberty_cv_var_sys_errlist libiberty_cv_var_sys_nerr
+  fi
+  build_gcc_tree "$HERE/gcc-2.96" "$HERE/build-296" arm-elf "-fcommon" cpp tradcpp
+}
 build_gcc3() { build_gcc_tree "$HERE/gcc-3.0"  "$HERE/build"     arm-agb-elf ""         cpp0 tradcpp0; }
 
 TARGET="${1:-}"

@@ -65,10 +65,12 @@ needed (pret already ships modern-host flags in `agbcc/gcc/Makefile`).
 CFLAGS (`-std=gnu17` to dodge gcc-15's C23 default; `-fcommon` for gcc-2.96).
 Source patches applied in-tree:
 
-- **gcc-2.96 (7):** refreshed `config.sub`/`config.guess`; x86_64 host entry in
+- **gcc-2.96 (10):** refreshed `config.sub`/`config.guess`; x86_64 host entry in
   `configure`; `collect2.c` `open(...,0666)`; touch `c-parse.c` newer than `.y`
   (modern bison rejects the `.y`); `c-gperf.h` `is_reserved_word` → `static`;
-  and **`config/arm/elf.h` `ASM_OUTPUT_ALIGN` → `.align N, 0`** (zero-fill pad).
+  **`config/arm/elf.h` `ASM_OUTPUT_ALIGN` → `.align N, 0`** (zero-fill pad);
+  and Darwin/Apple-Silicon host compatibility for libiberty symbols, i386
+  host-header assumptions, and generated instruction-builder calls.
 - **gcc-3.0 (5):** `config.sub`/`config.guess`; x86_64 in `config.gcc`;
   `arm.c` `DECL_RTL(sym)=new` → `SET_DECL_RTL(sym,new)`; `collect2.c`
   `open(...,0666)`; the same **`elf.h` zero-fill** patch.
