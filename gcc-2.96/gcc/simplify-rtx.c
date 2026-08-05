@@ -2535,8 +2535,13 @@ hash_rtx (x, mode, create)
       return hash ? hash : LABEL_REF;
 
     case SYMBOL_REF:
-      hash
-	+= ((unsigned) SYMBOL_REF << 7) + (unsigned long) XSTR (x, 0);
+      {
+	const unsigned char *p = (const unsigned char *) XSTR (x, 0);
+
+	if (p)
+	  while (*p)
+	    hash += *p++;
+      }
       return hash ? hash : SYMBOL_REF;
 
     case PRE_DEC:
