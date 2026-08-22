@@ -460,6 +460,8 @@ static int num_error_names = 0;
 
 #ifndef HAVE_SYS_ERRLIST
 
+#define sys_nerr libiberty_sys_nerr
+#define sys_errlist libiberty_sys_errlist
 static int sys_nerr;
 static const char **sys_errlist;
 
