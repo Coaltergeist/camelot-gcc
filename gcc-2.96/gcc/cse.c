@@ -2240,13 +2240,26 @@ canon_hash (x, mode)
 
       /* Assume there is only one rtx object for any given label.  */
     case LABEL_REF:
+      /* Hash on the label's number, not the address of the label rtx, so
+	 CSE bucketing stays host-independent (see the SYMBOL_REF note).  */
       hash
-	+= ((unsigned) LABEL_REF << 7) + (unsigned long) XEXP (x, 0);
+	+= ((unsigned) LABEL_REF << 7) + CODE_LABEL_NUMBER (XEXP (x, 0));
       return hash;
 
     case SYMBOL_REF:
-      hash
-	+= ((unsigned) SYMBOL_REF << 7) + (unsigned long) XSTR (x, 0);
+      {
+	/* Hash on the symbol's name contents, not the address of the
+	   interned string.  The pointer value depends on the host's heap
+	   layout at cc1 runtime, so hashing it makes CSE bucket ordering
+	   host-dependent and produces different codegen on different build
+	   hosts.  Mirrors the hash_rtx fix in simplify-rtx.c.  */
+	register const unsigned char *p =
+	  (const unsigned char *) XSTR (x, 0);
+
+	if (p)
+	  while (*p)
+	    hash += *p++;
+      }
       return hash;
 
     case MEM:

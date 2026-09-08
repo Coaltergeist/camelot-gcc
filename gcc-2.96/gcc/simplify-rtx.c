@@ -2530,8 +2530,10 @@ hash_rtx (x, mode, create)
 
       /* Assume there is only one rtx object for any given label.  */
     case LABEL_REF:
+      /* Hash on the label's number, not the address of the label rtx, so
+	 hashing stays host-independent (see the SYMBOL_REF case).  */
       hash
-	+= ((unsigned) LABEL_REF << 7) + (unsigned long) XEXP (x, 0);
+	+= ((unsigned) LABEL_REF << 7) + CODE_LABEL_NUMBER (XEXP (x, 0));
       return hash ? hash : LABEL_REF;
 
     case SYMBOL_REF:
