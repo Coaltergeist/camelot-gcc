@@ -1,0 +1,45 @@
+{
+  "build_host": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.35",
+  "build_host_cc": {
+    "command": "gcc",
+    "executable_sha256": "821af3c74506283c179ca413bb33e6b528805a4dd8a5c09df125e5ad560a9e89",
+    "version": "gcc (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0"
+  },
+  "compiler_artifacts": {
+    "cc1": "67108719d19e6abf36c3a3a8bc8da29d50c06cf8e8d328b9f199fa70b318a8be",
+    "cpp": "f203e1319e8a355898d5b0b4fe696ae2cb4ecf68771df65924c0ccad26bb9eab",
+    "tradcpp": "aa0212dcc7142017f98bafc00d8ad212f319ac5404332c75112ed7229b731b2e",
+    "xgcc": "e8a24c755d5adc6c0bdfde036045a5f8b2713fc887864eaf6af069a0f020f2ae"
+  },
+  "compiler_build_manifest_sha256": "0c1b47514a4fbcd7b24b674514b40d43cdce4b2cd98ac0e4d8e4e51ddab7b5ff",
+  "compiler_revision": "0a34b38ff830ce80db98c9577c5a1e1d24fa74a7",
+  "expected_sha256": {
+    "control.s": "6b956af39c2c85df0549d14c12c58d7c145c7421b8f2b54bdbd021f16b8307b5",
+    "globals.s": "9669a23dbf721aa973fc765055a7a9bd6b91d6a3686a983ce0ccb3e6b8436a92",
+    "padding.s": "b84c4c48636b5471061d1080c4eb5e0560ca3bc385327429cb26263f869edc6b"
+  },
+  "fixture_sha256": {
+    "control.c": "6fe9254e7d9d4d980f2f2ed608be40672b5abb2ae191dcb3cffe9ae18dfc85d1",
+    "globals.c": "917c601cd065d4446ff29ef6404b9331c75b32ec44c691cf752aecbb1dacdafe",
+    "padding.c": "6c20e37f9f95e156fa89a677a42d38f6c7728c4ce720afc90650f5a16d6fc117"
+  },
+  "fixtures": [
+    "control.c",
+    "globals.c",
+    "padding.c"
+  ],
+  "flags": [
+    "-O2",
+    "-mthumb",
+    "-mthumb-interwork",
+    "-mcpu=arm7tdmi",
+    "-fno-builtin",
+    "-nostdinc",
+    "-ffreestanding",
+    "-fcall-used-r4",
+    "-fno-strict-aliasing"
+  ],
+  "game_revision": "55d2d328c1765620c75e39e934204dd7bbb24639",
+  "recorded_at": "2026-09-09",
+  "schema": 1
+}

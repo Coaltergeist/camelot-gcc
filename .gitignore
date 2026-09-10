@@ -4,3 +4,7 @@ build-296/
 # Previous configurations retained by build.sh --rebuild / input invalidation
 build-archive/
 __pycache__/
+
+# Local regression outputs and command logs
+test-work/
+output.txt

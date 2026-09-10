@@ -1,6 +1,6 @@
 # camelot-gcc
 
-Vendored, patched GCC source that reproduces Camelot's GBA-era codegen
+Vendored, patched GCC source used to reproduce Golden Sun's GBA machine code
 byte-identically, for the [goldensun decomp](https://github.com/Coaltergeist/goldensun-decomp)
 (and in principle other Camelot GBA matching-decomps). Mirrors the
 [pret/agbcc](https://github.com/pret/agbcc) shape: vendored source + a build
@@ -16,21 +16,23 @@ One `build.sh` / `install.sh` pair drives all three, dispatched by a token:
 | gcc-3.0 release | `gcc-3.0/` | `gcc3` | `tools/gcc3/` | GS2 starting point (not wired in) |
 | pret/agbcc `old_agbcc` | `agbcc/` (pruned) | `agbcc` | `tools/agbcc/` | stock m4a / "Sappy" engine |
 
-The first two reproduce **Camelot's own** code. `old_agbcc` is different in
-kind; it reproduces the **prebuilt stock m4a ("Sappy") audio engine** that
-GS1 links verbatim. See [agbcc](#agbcc-stock-m4a--sappy).
+GCC 2.96 is the validated GS1 game-code compiler. GCC 3.0 is a research
+baseline, not a demonstrated GS2 reproduction. `old_agbcc` reproduces the
+**prebuilt stock m4a ("Sappy") audio engine** and most Flash library C in GS1. See [agbcc](#agbcc-stock-m4a--sappy).
 
 ## Build & install
 
 ```sh
-sudo apt install -y build-essential           # + binutils-arm-none-eabi (for agbcc)
-./build.sh all                                # or: gcc3 | agbcc | all
-./install.sh <YOUR-GOLDENSUN-DECOMP> all      # same token
+set -o pipefail
+sudo apt install -y build-essential binutils-arm-none-eabi python3 git 2>&1 | tee output.txt
+./build.sh all 2>&1 | tee -a output.txt
+./install.sh <YOUR-GOLDENSUN-DECOMP> all 2>&1 | tee -a output.txt
 ```
 
 - The vendored trees ship pre-generated `configure` / `c-parse.c` / `c-gperf.h`,
   timestamp-pinned newer than their inputs, so `autoconf` / `bison` / `m4` /
-  `gperf` are never invoked and need not be installed.
+  `gperf` are not needed for the normal build. Regenerating those files is a
+  separate development task and may require historical generator versions.
 - agbcc builds `-j1` (its 2.9-era genfiles tree isn't parallel-safe).
 - All `tools/<token>/` install dirs are gitignored in the decomp.
 
@@ -38,7 +40,9 @@ sudo apt install -y build-essential           # + binutils-arm-none-eabi (for ag
 
 - **gcc-2.96** reproduces the full Golden Sun ROM byte-identically (SHA1
   `5c4695205413df7db52b9a184815a07783999971`) against the goldensun Makefile
-  flag set. Supported, regression-tested path.
+  flag set. See [tests/README.md](tests/README.md) for the recorded pairing and
+  independent compatibility smoke corpus. Full-game equality includes remaining
+  assembly and legacy fakematches; it does not certify all source semantics.
 - **gcc-3.0** builds on modern hosts but isn't wired into the decomp; it can't
   reach fingerprint #5 natively. Kept as a clean GS2 baseline.
 - **agbcc**: a leaf m4a function (`MidiKeyToFreq`) built with `old_agbcc` is
@@ -65,28 +69,39 @@ needed (pret already ships modern-host flags in `agbcc/gcc/Makefile`).
 CFLAGS (`-std=gnu17` to dodge gcc-15's C23 default; `-fcommon` for gcc-2.96).
 Source patches applied in-tree:
 
-- **gcc-2.96 (10):** refreshed `config.sub`/`config.guess`; x86_64 host entry in
-  `configure`; `collect2.c` `open(...,0666)`; touch `c-parse.c` newer than `.y`
-  (modern bison rejects the `.y`); `c-gperf.h` `is_reserved_word` → `static`;
-  **`config/arm/elf.h` `ASM_OUTPUT_ALIGN` → `.align N, 0`** (zero-fill pad);
-  and Darwin/Apple-Silicon host compatibility for libiberty symbols, i386
-  host-header assumptions, and generated instruction-builder calls.
-- **gcc-3.0 (5):** `config.sub`/`config.guess`; x86_64 in `config.gcc`;
-  `arm.c` `DECL_RTL(sym)=new` → `SET_DECL_RTL(sym,new)`; `collect2.c`
-  `open(...,0666)`; the same **`elf.h` zero-fill** patch.
+- **gcc-2.96 host compatibility:** refreshed `config.sub`/`config.guess`,
+  x86_64 configure support, `collect2.c` file-creation mode, `c-gperf.h` linkage,
+  and Darwin/Apple-Silicon compatibility changes. Build scripts preserve shipped
+  generated files. These patches are not evidence that every host is validated.
+- **gcc-2.96 optimizer compatibility:** `simplify-rtx.c:hash_rtx` hashes symbol
+  names by content (commit `7d6f4af776a9ceeb7a70d95864b5d8112a383574`). Commit
+  `87601c6997b2e95daaedfb6eeefe7e4e851a44bf` does the same in `cse.c:canon_hash`
+  and changes label hashing in both functions to `CODE_LABEL_NUMBER`.
+  The original cases used host pointer values. Bucket placement can affect
+  optimizer choices, so these **can affect generated code**, not just host
+  compilation. Their purpose is to remove these specific heap-layout inputs;
+  they do not prove that every other optimization is host-independent.
+- **Both GCC trees:** `config/arm/elf.h` emits `.align N, 0` to reproduce zero
+  padding with modern assemblers. This also affects output bytes. The game
+  build separately appends a final zero-filled alignment after each C TU.
+- **gcc-3.0 host/source compatibility:** refreshed host configuration,
+  `SET_DECL_RTL` use in `arm.c`, and `collect2.c` file-creation mode.
 
-Only the `elf.h` `.align N, 0` patch affects codegen (modern `arm-none-eabi-as`
-pads with Thumb nops; Camelot's binutils padded with zeros). Both gcc trees are
-pruned to a C-only cross-compiler (~37 MB each, from ~89/105 MB upstream).
+Both GCC trees are pruned to a C-only cross-compiler (~37 MB each, from
+~89/105 MB upstream). The compatibility patch descriptions are not an assertion
+that the compiler is an exact archival copy of Camelot's proprietary toolchain.
 
 ## Compile flags (goldensun Makefile)
 
 ```
--O2 -mthumb -mthumb-interwork -mcpu=arm7tdmi -fno-builtin -nostdinc -ffreestanding -fcall-used-r4
+-O2 -mthumb -mthumb-interwork -mcpu=arm7tdmi -fno-builtin -nostdinc -ffreestanding -fcall-used-r4 -fno-strict-aliasing
 ```
 
 `-fcall-used-r4` marks r4 caller-clobbered (Camelot's ABI). gcc-3.0 additionally
-needs `-ffixed-r7`; gcc-2.96 avoids r7 naturally.
+needs `-ffixed-r7` for the studied GS1 fingerprints; GCC 2.96 uses the production
+settings above. The game Makefile is authoritative: it also supplies include and
+driver paths, omits interworking for the common2 TU, and selects different
+compilers/flags for imported libraries.
 
 ## Camelot codegen fingerprints
 
@@ -116,7 +131,6 @@ needs `-ffixed-r7`; gcc-2.96 avoids r7 naturally.
 - **Tarpman** — 2021 thread documenting fingerprints #1–#5; #4 trigger repro.
 - **Karathan** — published the working flag set on Compiler Explorer.
 - The GBA decomp community for the pret/agbcc pattern this repo imitates.
-</content>
 
 ## Build freshness and provenance
 
