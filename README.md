@@ -150,3 +150,13 @@ the binaries. An old build without a manifest must be rebuilt before installatio
 This records local provenance; it does not establish cross-host reproducibility.
 The old_agbcc lane continues to clean and rebuild on each invocation; it does not
 yet use the GCC build-manifest format.
+
+Component attribution and notice locations: [ATTRIBUTION.md](ATTRIBUTION.md).
+
+## Repository checks
+
+The workflow builds GCC 2.96, verifies its build manifest and compares the independent compiler fixtures.
+The GitHub workflow uses Ubuntu 22.04 and requires no game ROM or repository
+secrets. A successful run does not certify game byte matching or source semantics.
+Full-game contributions still require the fresh serial ROM/all-overlay gate and
+source review. New fakematches are not accepted.
