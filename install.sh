@@ -34,9 +34,11 @@ install_gcc_tree() {
   for f in "$@"; do
     [ -x "$BUILD/gcc/$f" ] || { echo "error: $BUILD/gcc/$f missing. Run ./build.sh first."; exit 2; }
   done
+  python3 "$HERE/build_manifest.py" verify "$BUILD"
   mkdir -p "$DEST"
   for f in "$@"; do cp "$BUILD/gcc/$f" "$DEST/"; chmod +x "$DEST/$f"; done
-  echo "installed $NAME binaries into $DEST"
+  cp "$BUILD/build-manifest.json" "$DEST/build-manifest.json"
+  echo "installed $NAME binaries and build manifest into $DEST"
   ls -la "$DEST"
 }
 

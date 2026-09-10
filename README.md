@@ -117,3 +117,22 @@ needs `-ffixed-r7`; gcc-2.96 avoids r7 naturally.
 - **Karathan** — published the working flag set on Compiler Explorer.
 - The GBA decomp community for the pret/agbcc pattern this repo imitates.
 </content>
+
+## Build freshness and provenance
+
+Run `./build.sh gcc296` after compiler changes. The GCC 2.96 and GCC 3.0
+pipelines compare source contents, build-script contents, host compiler identity,
+and flags with the previous configuration. Changed inputs start a fresh build;
+previous build directories are retained under ignored `build-archive/`. Unchanged
+inputs still run make rather than treating existing executables as proof of success.
+Use `./build.sh gcc296 --rebuild` to explicitly start fresh. `NPROC` controls host
+build parallelism; `HOST_CFLAGS_BASE`, `HOST_CXXFLAGS`, and `HOST_LDFLAGS` can be
+overridden and are recorded in the input manifest.
+
+A successful GCC build writes `build-manifest.json` with source hashes, revision,
+dirty-state indication, host compiler/flags, and artifact SHA256 values. Installation
+verifies that the sources and artifacts still match and copies the manifest with
+the binaries. An old build without a manifest must be rebuilt before installation.
+This records local provenance; it does not establish cross-host reproducibility.
+The old_agbcc lane continues to clean and rebuild on each invocation; it does not
+yet use the GCC build-manifest format.

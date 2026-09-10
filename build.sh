@@ -15,16 +15,18 @@ set -e
 
 cd "$(dirname "$0")"
 HERE="$PWD"
-NPROC="$(nproc 2>/dev/null || echo 4)"
+NPROC="${NPROC:-$(nproc 2>/dev/null || echo 4)}"
+REBUILD=()
+case "${2:-}" in --rebuild) REBUILD=(--rebuild) ;; "") ;; *) echo "unknown option: $2" >&2; exit 2 ;; esac
 
 # Host flags shared by the gcc-2.96 / gcc-3.0 trees. gcc-11+ emits warnings
 # the 2000/2001-era source treats as errors without these silencers; -no-pie
 # is required because that build infra produces non-PIE executables;
 # -std=gnu17 pins the standard back from gcc-15's C23 default (which turns
 # implicit-int / K&R declarations into hard errors the -Wno-* can't silence).
-HOST_CFLAGS_BASE="-O2 -fno-pie -no-pie -Wno-narrowing -Wno-implicit-int -Wno-implicit-function-declaration -Wno-pointer-arith -Wno-int-conversion -Wno-format -Wno-error -std=gnu17 -Wno-incompatible-pointer-types"
-HOST_CXXFLAGS="-O2 -fno-pie -no-pie -Wno-narrowing -Wno-error -std=gnu++17"
-HOST_LDFLAGS="-no-pie"
+HOST_CFLAGS_BASE="${HOST_CFLAGS_BASE:--O2 -fno-pie -no-pie -Wno-narrowing -Wno-implicit-int -Wno-implicit-function-declaration -Wno-pointer-arith -Wno-int-conversion -Wno-format -Wno-error -std=gnu17 -Wno-incompatible-pointer-types}"
+HOST_CXXFLAGS="${HOST_CXXFLAGS:--O2 -fno-pie -no-pie -Wno-narrowing -Wno-error -std=gnu++17}"
+HOST_LDFLAGS="${HOST_LDFLAGS:--no-pie}"
 
 # ---------------------------------------------------------------------------
 # Build a gcc-2.96 / gcc-3.0 style C-only arm cross cc1 from a vendored tree.
@@ -41,6 +43,11 @@ build_gcc_tree() {
 
   [ -d "$SRC" ] || { echo "error: $SRC not found"; exit 2; }
 
+  # Invalidate by content/configuration before touching historical timestamps.
+  # A previous tree is retained; unchanged inputs still run dependency-aware make.
+  python3 "$HERE/build_manifest.py" prepare "$SRC" "$BUILD" "$TARGET" \
+    --cflags="$CF" --cxxflags="$HOST_CXXFLAGS" --ldflags="$HOST_LDFLAGS" "${REBUILD[@]}"
+
   # Some configure / install helpers lose +x via Windows-side editing /
   # archive extraction. Restore them defensively.
   find "$SRC" \( -name configure -o -name config.sub -o -name config.guess \
@@ -53,11 +60,14 @@ build_gcc_tree() {
   # *.gperf) newer than their shipped outputs, making make try to re-run
   # autoconf/bison/gperf against modern tools that reject the 2000/2001-era
   # inputs. Stamp the inputs OLD and the outputs NEW so they look up-to-date.
+  if [ ! -f "$BUILD/gcc/Makefile" ]; then
+
   find "$SRC" \( -name configure.in -o -name "*.y" -o -name "*.gperf" \
               -o -name acconfig.h \) -exec touch -t 200001010000 {} \;
   find "$SRC" \( -name configure -o -name "c-parse.c" -o -name "c-parse.h" \
               -o -name "c-gperf.h" -o -name "cstamp-h.in" -o -name "config.in" \
               -o -name "tradcif.c" \) -exec touch {} \;
+  fi
 
   mkdir -p "$BUILD"
   cd "$BUILD"
@@ -76,18 +86,18 @@ build_gcc_tree() {
   fi
 
   # Stage 2: libiberty (configured + built manually).
-  if [ ! -f libiberty/libiberty.a ]; then
+  if [ ! -f libiberty/Makefile ]; then
     echo "[2/4] libiberty"
-    rm -rf libiberty && mkdir libiberty && cd libiberty
+    mkdir -p libiberty && cd libiberty
     CFLAGS="$CF" LDFLAGS="$HOST_LDFLAGS" \
       "$SRC/libiberty/configure" \
         --srcdir="$SRC/libiberty" \
         --prefix="$BUILD/install" \
         --build=x86_64-unknown-linux-gnu --host=x86_64-unknown-linux-gnu \
         --target="$TARGET" --disable-shared --disable-nls
-    make -j"$NPROC"
     cd ..
   fi
+  make -C libiberty -j"$NPROC" CFLAGS="$CF" LDFLAGS="$HOST_LDFLAGS"
 
   # Stage 3: gcc/ subdir configure.
   if [ ! -f gcc/Makefile ]; then
@@ -109,13 +119,12 @@ build_gcc_tree() {
   # top-level `all-gcc` umbrella (depends on configure.in regen rules we don't
   # ship) and fixinc (static-vs-extern collision with modern gcc, unneeded for
   # a freestanding cross-compile).
-  if [ ! -x "gcc/cc1" ] || [ ! -x "gcc/xgcc" ] || [ ! -x "gcc/$CPP" ] || [ ! -x "gcc/$TRADCPP" ]; then
+  # Always invoke make, including when all four executables already exist.
+  {
     echo "[4/4] make cc1 + xgcc + $CPP + $TRADCPP"
     cd gcc
-    # Stamp config.status NEW so its --recheck rule (which re-runs configure's
-    # compiler probe with flags lacking -std=gnu17) does not fire if
-    # $SRC/gcc/configure has a fresher mtime after a re-clone.
-    [ -f config.status ] && touch config.status
+    # Reconfiguration follows input invalidation; leave unchanged generated
+    # sources and config.status mtimes intact on subsequent invocations.
     # CFLAGS must be a command-line make variable, not an env var: gcc's
     # Makefile.in hard-codes CFLAGS = -O2 -g, and a Makefile internal
     # assignment beats inherited environment but not a command-line override.
@@ -123,7 +132,9 @@ build_gcc_tree() {
       CFLAGS="$CF" CXXFLAGS="$HOST_CXXFLAGS" LDFLAGS="$HOST_LDFLAGS" \
       cc1 xgcc "$CPP" "$TRADCPP"
     cd ..
-  fi
+  }
+
+  python3 "$HERE/build_manifest.py" record "$BUILD" cc1 xgcc "$CPP" "$TRADCPP"
 
   echo
   if [ -x "gcc/cc1" ] && [ -x "gcc/xgcc" ] && [ -x "gcc/$CPP" ] && [ -x "gcc/$TRADCPP" ]; then
@@ -185,7 +196,7 @@ case "$TARGET" in
   agbcc)  build_agbcc ;;
   all)    build_296; echo; build_gcc3; echo; build_agbcc ;;
   *)
-    echo "usage: $0 <gcc296|gcc3|agbcc|all>"
+    echo "usage: $0 <gcc296|gcc3|agbcc|all> [--rebuild]"
     echo "  gcc296  gcc-2.96 (GS1 production)   -> install dir tools/gcc296/"
     echo "  gcc3    gcc-3.0  (GS2 starting pt)  -> install dir tools/gcc3/"
     echo "  agbcc   old_agbcc (stock m4a/Sappy) -> install dir tools/agbcc/"
